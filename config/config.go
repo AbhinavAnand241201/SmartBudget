@@ -12,17 +12,19 @@ type Config struct {
 	SendGridAPIKey string
 	HuggingFaceKey string
 	Environment    string
+	AIServiceURL   string
 }
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() *Config {
 	return &Config{
 		Port:           getEnv("PORT", "8080"),
-		DatabaseURL:    getEnv("DATABASE_URL", ""),
+		DatabaseURL:    getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/smartbudget?sslmode=disable"),
 		SupabaseKey:    getEnv("SUPABASE_KEY", ""),
 		SendGridAPIKey: getEnv("SENDGRID_API_KEY", ""),
 		HuggingFaceKey: getEnv("HUGGINGFACE_KEY", ""),
 		Environment:    getEnv("ENVIRONMENT", "development"),
+		AIServiceURL:   getEnv("AI_SERVICE_URL", "http://localhost:5001"),
 	}
 }
 

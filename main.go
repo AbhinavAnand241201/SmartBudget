@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-
 	"smartbudget/api"
 	"smartbudget/config"
 	"smartbudget/db"
@@ -14,39 +13,33 @@ func main() {
 	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Set Gin mode based on environment
-	if cfg.Environment == "production" {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
 	// Initialize database connection
-	if err := db.InitDB(); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+	database, err := db.NewDB(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.CloseDB()
+	defer database.Close()
+
+	// Initialize AI client
+	aiClient := api.NewAIClient(cfg.AIServiceURL)
 
 	// Initialize router
-	r := gin.Default()
+	router := gin.Default()
 
 	// Health check endpoint
-	r.GET("/health", func(c *gin.Context) {
+	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
-			"status":  "healthy",
-			"message": "SmartBudget API is running",
+			"status": "healthy",
 		})
 	})
 
-	// Initialize and register user routes
-	userHandler := api.NewUserHandler()
-	userHandler.RegisterRoutes(r)
-
-	// Initialize and register insight routes
-	insightHandler := api.NewInsightHandler()
-	insightHandler.RegisterRoutes(r)
+	// Register routes
+	api.RegisterUserRoutes(router, database)
+	api.RegisterInsightRoutes(router, database, aiClient)
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
+	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

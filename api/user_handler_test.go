@@ -5,57 +5,72 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"smartbudget/db"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUserHandler(t *testing.T) {
-	// Set Gin to test mode
+func setupTestUserRouter(t *testing.T) (*gin.Engine, *db.DB, *db.User) {
 	gin.SetMode(gin.TestMode)
-
-	// Create a test router
+	dbURL := os.Getenv("TEST_DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("TEST_DATABASE_URL not set")
+	}
+	database, err := db.NewDB(dbURL)
+	if err != nil {
+		t.Skipf("Could not connect to test DB: %v", err)
+	}
+	user := &db.User{
+		ID:    uuid.New(),
+		Email: "test@example.com",
+		Name:  "Test User",
+	}
+	_ = database.CreateUser(nil, user)
+	handler := NewUserHandler(database)
 	r := gin.Default()
-	handler := NewUserHandler()
 	handler.RegisterRoutes(r)
+	return r, database, user
+}
 
+func TestUserHandler(t *testing.T) {
 	t.Run("CreateUser", func(t *testing.T) {
-		// Create test user
-		user := db.NewUser("test@example.com")
+		r, database, _ := setupTestUserRouter(t)
+		defer database.Close()
+		user := &db.User{
+			ID:    uuid.New(),
+			Email: "newuser@example.com",
+			Name:  "New User",
+		}
 		body, _ := json.Marshal(user)
-
-		// Create request
-		req, _ := http.NewRequest("POST", "/api/users", bytes.NewBuffer(body))
+		req, _ := http.NewRequest("POST", "/users", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
-
-		// Perform request
 		r.ServeHTTP(w, req)
-
-		// Assert response
 		assert.Equal(t, http.StatusCreated, w.Code)
 		var response db.User
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
 		assert.Equal(t, user.Email, response.Email)
+		assert.Equal(t, user.Name, response.Name)
 	})
 
 	t.Run("GetUser", func(t *testing.T) {
-		// Create request
-		req, _ := http.NewRequest("GET", "/api/users/123", nil)
+		r, database, user := setupTestUserRouter(t)
+		defer database.Close()
+		req, _ := http.NewRequest("GET", "/users/"+user.ID.String(), nil)
 		w := httptest.NewRecorder()
-
-		// Perform request
 		r.ServeHTTP(w, req)
-
-		// Assert response
 		assert.Equal(t, http.StatusOK, w.Code)
-		var response map[string]string
+		var response db.User
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, "123", response["id"])
+		assert.Equal(t, user.ID, response.ID)
+		assert.Equal(t, user.Email, response.Email)
+		assert.Equal(t, user.Name, response.Name)
 	})
 }

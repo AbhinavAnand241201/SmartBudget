@@ -17,8 +17,7 @@ func TestHealthCheck(t *testing.T) {
 	r := gin.Default()
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status":  "healthy",
-			"message": "SmartBudget API is running",
+			"status": "healthy",
 		})
 	})
 
@@ -35,5 +34,4 @@ func TestHealthCheck(t *testing.T) {
 	// Assert the response
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "healthy")
-	assert.Contains(t, w.Body.String(), "SmartBudget API is running")
 }
